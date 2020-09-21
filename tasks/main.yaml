@@ -1,0 +1,69 @@
+- name: Check if repos exist on gogs - create if not
+  uri:
+    url: https://git.megaphonetech.com/api/v1/org/{{ git_repo_owner }}/repos
+    method: POST
+    headers:
+      Authorization: token {{ lookup('passwordstore', 'megaphone/gogs/api') }}
+    body:
+      name: "{{ git_repo_name }}"
+      description: "Repo for {{ git_repo_name }}"
+      private: true
+    body_format: json
+  register: create_gogs_repo
+  failed_when: not(create_gogs_repo.status == 201 or create_gogs_repo.status == 422 or create_gogs_repo.status == 403 or create_gogs_repo.status == 409)
+  when: internal_repo == '1'
+
+- name: Get the home directory
+  user:
+    name: "{{ run_as_user }}"
+  register: userinfo
+
+- name: Create the .ssh directory
+  file:
+    path: "{{ userinfo.home }}/.ssh"
+    state: directory
+  become_user: "{{ run_as_user }}"
+
+# Add any hosts that submodules might come from via SSH - e.g. github
+- name: Add keys to web user known_hosts
+  known_hosts:
+    name: "{{ item.host }}"
+    key: "{{ item.key }}"
+  with_items:
+    - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDgNwIe3TBtRHtkwoHL2TG84/f039hgzqVbN0z4sk1UHPZr4rxFinGCGjedzE+adVucqr/gemPnETfashTujcPyZZkwPn2dQNx0HuPHw3H+cqXqKt03fsgPcerqsqvFS509pcblmP5vtJLF4uVgbh6TLmZiObMuiIYe9VTyZSXo67DTt/K6SSgwyUFldqJIJQA+DO1nXoSYSJ4fP1DDPdue0RTL06VtlnUL2w9iHrOgVRY1KqAtpnGRslKx5c3L8+9EBMdJWM1CPK11vkvyf8LnYwuCH4V7w0rVs2QAE9Abm4g4HiE4wql5QJrjCi/cq/1doeY9KXxFb8SOTtZBk5Nn" }
+    - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLuEP2fW8Eycdbeo0XWihr63zj6yCTcCjxh4C4i3c8p2O44mKRjVhxOSSBQQxZNUKeJYAGTuWh+EPW71KADzXv0=" }
+    - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJoN1UsqLqucSJo4dSum6Xy2qCrlutDAu3wPdprAL4w" }
+    - { host: "github.com", key: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" }
+    - { host: "[git.colet.space]:10022", key: "[git.colet.space]:10022 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCotp3vQdI4NZStUFeFzj7LExAyPBbKOe+97wY2Mx0f4U3ZtyYn1AGhfWiccp5jzkM3kE6Nq/iaJWVZ02JxSAQxsGgh7fn7vCzNnv7FJAFmEXC9QvV3RfjwTLAfPXd6FdPsl4bmXhabTgifbWHUujnC1yoktjgbTk0oXJ/tGJ0Xi7s3vGMKCqOQsjpNeBtyuL3ik43h4HJHgMs0GAgNNrdOcDr10dl9/6quWZOGgNfShrzHTn+Ms7zI8kavD1xBtgNIfKdXPBn8A3hglQrttIj5XxBGQ2oS+ArizvGiZrRS5yQ89ZmJ0xNjEjxiO8do2X5GQqFLnVZVWwiOj7Qd4HVB" }
+  become_user: "{{ run_as_user }}"
+
+
+- name: Get the web user's SSH key
+  slurp:
+    src: "{{ userinfo.home }}/.ssh/id_rsa.pub"
+  register: key
+  become_user: "{{ run_as_user }}"
+
+# Gitea thinks the key exists if the title matches an existing key.
+# So we hash the key to add to the title.
+- name: Get a key hash
+  set_fact:
+    key_md5: "{{ key['content'] | b64decode | md5 }}"
+
+# Deploy keys are read/write on trusted servers, read-only otherwise.
+- name: Set up deploy keys on gitea
+  uri:
+    url: "https://git.megaphonetech.com/api/v1/repos/{{ git_repo_owner }}/{{ git_repo_name }}/keys"
+    method: POST
+    body_format: json
+    body:
+      title: "{{ run_as_user + '@' + inventory_hostname_short + ' ' + key_md5 }}"
+      key: "{{ key['content'] | b64decode }}"
+      read_only: "{{ (trusted_server == '1') | ternary(false, true) }}"
+    headers:
+      Authorization: token {{ lookup('passwordstore', 'megaphone/gogs/api') }}
+  when: internal_repo == '1'
+  register: gogs_result
+  changed_when: gogs_result.status == 201
+  failed_when: gogs_result.status != 201 and not (gogs_result.json is defined and gogs_result.json.message is defined and gogs_result.json.message is search("This key has already been added"))
+  become_user: "{{ run_as_user }}"
