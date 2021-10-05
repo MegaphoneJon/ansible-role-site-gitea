@@ -59,7 +59,7 @@
     body:
       title: "{{ run_as_user + '@' + inventory_hostname_short + ' ' + key_md5 }}"
       key: "{{ key['content'] | b64decode }}"
-      read_only: "{{ (trusted_server == '1') | ternary(false, true) }}"
+      read_only: "{{ (env == 'Dev') | ternary(false, true) }}"
     headers:
       Authorization: token {{ lookup('passwordstore', 'megaphone/gogs/api') }}
   when: internal_repo == '1'
