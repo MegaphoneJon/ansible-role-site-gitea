@@ -23,6 +23,7 @@
     path: "{{ userinfo.home }}/.ssh"
     state: directory
   become_user: "{{ run_as_user }}"
+  become: yes
 
 # Add any hosts that submodules might come from via SSH - e.g. github
 - name: Add keys to web user known_hosts
@@ -35,12 +36,14 @@
     - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJoN1UsqLqucSJo4dSum6Xy2qCrlutDAu3wPdprAL4w" }
     - { host: "github.com", key: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" }
   become_user: "{{ run_as_user }}"
+  become: yes
 
 
 - name: Get the web user's SSH key
   slurp:
     src: "{{ userinfo.home }}/.ssh/id_rsa.pub"
   register: key
+  become: yes
   become_user: "{{ run_as_user }}"
 
 # Gitea thinks the key exists if the title matches an existing key.
