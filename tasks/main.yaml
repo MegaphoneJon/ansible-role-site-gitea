@@ -31,12 +31,13 @@
     name: "{{ item.host }}"
     key: "{{ item.key }}"
   with_items:
-    - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDgNwIe3TBtRHtkwoHL2TG84/f039hgzqVbN0z4sk1UHPZr4rxFinGCGjedzE+adVucqr/gemPnETfashTujcPyZZkwPn2dQNx0HuPHw3H+cqXqKt03fsgPcerqsqvFS509pcblmP5vtJLF4uVgbh6TLmZiObMuiIYe9VTyZSXo67DTt/K6SSgwyUFldqJIJQA+DO1nXoSYSJ4fP1DDPdue0RTL06VtlnUL2w9iHrOgVRY1KqAtpnGRslKx5c3L8+9EBMdJWM1CPK11vkvyf8LnYwuCH4V7w0rVs2QAE9Abm4g4HiE4wql5QJrjCi/cq/1doeY9KXxFb8SOTtZBk5Nn" }
-    - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLuEP2fW8Eycdbeo0XWihr63zj6yCTcCjxh4C4i3c8p2O44mKRjVhxOSSBQQxZNUKeJYAGTuWh+EPW71KADzXv0=" }
-    - { host: "[git.megaphonetech.com]:10022", key: "[git.megaphonetech.com]:10022 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJoN1UsqLqucSJo4dSum6Xy2qCrlutDAu3wPdprAL4w" }
+    - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDgNwIe3TBtRHtkwoHL2TG84/f039hgzqVbN0z4sk1UHPZr4rxFinGCGjedzE+adVucqr/gemPnETfashTujcPyZZkwPn2dQNx0HuPHw3H+cqXqKt03fsgPcerqsqvFS509pcblmP5vtJLF4uVgbh6TLmZiObMuiIYe9VTyZSXo67DTt/K6SSgwyUFldqJIJQA+DO1nXoSYSJ4fP1DDPdue0RTL06VtlnUL2w9iHrOgVRY1KqAtpnGRslKx5c3L8+9EBMdJWM1CPK11vkvyf8LnYwuCH4V7w0rVs2QAE9Abm4g4HiE4wql5QJrjCi/cq/1doeY9KXxFb8SOTtZBk5Nn" }
+    - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLuEP2fW8Eycdbeo0XWihr63zj6yCTcCjxh4C4i3c8p2O44mKRjVhxOSSBQQxZNUKeJYAGTuWh+EPW71KADzXv0=" }
+    - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJoN1UsqLqucSJo4dSum6Xy2qCrlutDAu3wPdprAL4w" }
     - { host: "github.com", key: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" }
   become_user: "{{ run_as_user }}"
   become: yes
+  tags: port-change
 
 
 - name: Get the web user's SSH key
