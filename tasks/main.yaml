@@ -1,17 +1,30 @@
-- name: Check if repos exist on gogs - create if not
+- name: Check if repos exist on gitea - create if not
   uri:
     url: https://git.megaphonetech.com/api/v1/org/{{ git_repo_owner }}/repos
     method: POST
     headers:
-      Authorization: token {{ lookup('community.general.passwordstore', 'megaphone/gogs/api') }}
+      Authorization: token {{ lookup('community.general.passwordstore', 'megaphone/gitea/api') }}
     body:
       name: "{{ git_repo_name }}"
       description: "Repo for {{ git_repo_name }}"
       private: true
     body_format: json
-  register: create_gogs_repo
-  failed_when: not(create_gogs_repo.status == 201 or create_gogs_repo.status == 422 or create_gogs_repo.status == 403 or create_gogs_repo.status == 409)
+  register: create_gitea_repo
+  failed_when: not(create_gitea_repo.status == 201 or create_gitea_repo.status == 422 or create_gitea_repo.status == 403 or create_gitea_repo.status == 409)
   when: internal_repo == '1'
+
+- name: get the ansible_env on nosudo to find the user's home dir
+  setup:
+    filter: ansible_env
+  when: "'nosudo' in group_names"
+
+- name: Set the backup user
+  ansible.builtin.set_fact:
+    backup_user: "{{ username if 'nosudo' in group_names else 'root' }}"
+
+- name: Set the ssh key location
+  ansible.builtin.set_fact:
+    ssh_key_location: "{{ ansible_env.HOME + '/include/megaphone/ssh' if 'mayfirst-ng-site' in group_names else ( ansible_env.HOME + '/.ssh' if 'nosudo' in group_names else '/root/.ssh') }}"
 
 - name: Get the home directory
   user:
@@ -20,31 +33,27 @@
 
 - name: Create the .ssh directory
   file:
-    path: "{{ userinfo.home }}/.ssh"
+    path: "{{ ssh_key_location }}"
     state: directory
   become_user: "{{ run_as_user }}"
-  become: yes
 
 # Add any hosts that submodules might come from via SSH - e.g. github
 - name: Add keys to web user known_hosts
   known_hosts:
     name: "{{ item.host }}"
     key: "{{ item.key }}"
+    path: "{{ ssh_key_location + '/known_hosts' }}"
   with_items:
     - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDgNwIe3TBtRHtkwoHL2TG84/f039hgzqVbN0z4sk1UHPZr4rxFinGCGjedzE+adVucqr/gemPnETfashTujcPyZZkwPn2dQNx0HuPHw3H+cqXqKt03fsgPcerqsqvFS509pcblmP5vtJLF4uVgbh6TLmZiObMuiIYe9VTyZSXo67DTt/K6SSgwyUFldqJIJQA+DO1nXoSYSJ4fP1DDPdue0RTL06VtlnUL2w9iHrOgVRY1KqAtpnGRslKx5c3L8+9EBMdJWM1CPK11vkvyf8LnYwuCH4V7w0rVs2QAE9Abm4g4HiE4wql5QJrjCi/cq/1doeY9KXxFb8SOTtZBk5Nn" }
     - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLuEP2fW8Eycdbeo0XWihr63zj6yCTcCjxh4C4i3c8p2O44mKRjVhxOSSBQQxZNUKeJYAGTuWh+EPW71KADzXv0=" }
     - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJoN1UsqLqucSJo4dSum6Xy2qCrlutDAu3wPdprAL4w" }
     - { host: "github.com", key: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" }
   become_user: "{{ run_as_user }}"
-  become: yes
-  tags: port-change
-
 
 - name: Get the web user's SSH key
   slurp:
-    src: "{{ userinfo.home }}/.ssh/id_rsa.pub"
+    src: "{{ ssh_key_location }}/id_ed25519.pub"
   register: key
-  become: yes
   become_user: "{{ run_as_user }}"
 
 # Gitea thinks the key exists if the title matches an existing key.
@@ -64,9 +73,9 @@
       key: "{{ key['content'] | b64decode }}"
       read_only: "{{ (env == 'Dev') | ternary(false, true) }}"
     headers:
-      Authorization: token {{ lookup('community.general.passwordstore', 'megaphone/gogs/api') }}
+      Authorization: token {{ lookup('community.general.passwordstore', 'megaphone/gitea/api') }}
   when: internal_repo == '1'
-  register: gogs_result
-  changed_when: gogs_result.status == 201
-  failed_when: gogs_result.status != 201 and not (gogs_result.json is defined and gogs_result.json.message is defined and gogs_result.json.message is search("This key has already been added"))
+  register: gitea_result
+  changed_when: gitea_result.status == 201
+  failed_when: gitea_result.status != 201 and not (gitea_result.json is defined and gitea_result.json.message is defined and gitea_result.json.message is search("This key has already been added"))
   become_user: "{{ run_as_user }}"
