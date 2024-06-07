@@ -16,24 +16,11 @@
 - name: get the ansible_env on nosudo to find the user's home dir
   setup:
     filter: ansible_env
-  when: "'nosudo' in group_names"
-
-- name: Set the backup user
-  ansible.builtin.set_fact:
-    backup_user: "{{ username if 'nosudo' in group_names else 'root' }}"
-
-- name: Set the ssh key location
-  ansible.builtin.set_fact:
-    ssh_key_location: "{{ ansible_env.HOME + '/include/megaphone/ssh' if 'mayfirst-ng-site' in group_names else ( ansible_env.HOME + '/.ssh' if 'nosudo' in group_names else '/root/.ssh') }}"
-
-- name: Get the home directory
-  user:
-    name: "{{ run_as_user }}"
-  register: userinfo
+  become_user: "{{ run_as_user }}"
 
 - name: Create the .ssh directory
   file:
-    path: "{{ ssh_key_location }}"
+    path: "{{ ssh_key_location | default(ansible_env.HOME + '/.ssh', true) }}"
     state: directory
   become_user: "{{ run_as_user }}"
 
@@ -42,7 +29,7 @@
   known_hosts:
     name: "{{ item.host }}"
     key: "{{ item.key }}"
-    path: "{{ ssh_key_location + '/known_hosts' }}"
+    path: "{{ ssh_key_location | default(ansible_env.HOME + '/.ssh', true) + '/known_hosts' }}"
   with_items:
     - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDgNwIe3TBtRHtkwoHL2TG84/f039hgzqVbN0z4sk1UHPZr4rxFinGCGjedzE+adVucqr/gemPnETfashTujcPyZZkwPn2dQNx0HuPHw3H+cqXqKt03fsgPcerqsqvFS509pcblmP5vtJLF4uVgbh6TLmZiObMuiIYe9VTyZSXo67DTt/K6SSgwyUFldqJIJQA+DO1nXoSYSJ4fP1DDPdue0RTL06VtlnUL2w9iHrOgVRY1KqAtpnGRslKx5c3L8+9EBMdJWM1CPK11vkvyf8LnYwuCH4V7w0rVs2QAE9Abm4g4HiE4wql5QJrjCi/cq/1doeY9KXxFb8SOTtZBk5Nn" }
     - { host: "git.megaphonetech.com", key: "git.megaphonetech.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLuEP2fW8Eycdbeo0XWihr63zj6yCTcCjxh4C4i3c8p2O44mKRjVhxOSSBQQxZNUKeJYAGTuWh+EPW71KADzXv0=" }
@@ -52,7 +39,7 @@
 
 - name: Get the web user's SSH key
   slurp:
-    src: "{{ ssh_key_location }}/id_ed25519.pub"
+    src: "{{ ssh_key_location | default(ansible_env.HOME + '/.ssh', true) }}/id_ed25519.pub"
   register: key
   become_user: "{{ run_as_user }}"
 
